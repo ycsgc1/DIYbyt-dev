@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { List, FileText, Plus, GripVertical, Edit2, X } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { List, FileText, Plus, GripVertical, Edit2, X, Settings, Trash2 } from 'lucide-react';
 import {
   listStarPrograms,
   saveStarProgram,
@@ -9,7 +9,6 @@ import {
 import './styles.css';
 
 const StarEditor = ({ isOpen, onClose, program, onSave }) => {
-  console.log('StarEditor props:', { isOpen, program });  // Debug log
   const [content, setContent] = useState(program?.content || '');
 
   useEffect(() => {
@@ -121,47 +120,15 @@ const ConfigEditor = ({ isOpen, onClose, program, metadata, onSave }) => {
   );
 };
 
-const CreateProgramModal = ({ isOpen, onClose, onCreate }) => {
-  const [programName, setProgramName] = useState('');
-  
+const DeleteConfirmation = ({ isOpen, onClose, program, onConfirm }) => {
   if (!isOpen) return null;
-  
-  const handleCreate = () => {
-    if (programName.trim()) {
-      onCreate(`${programName.trim()}.star`, '// New star program\n');
-      setProgramName('');
-      onClose();
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg w-96 flex flex-col">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h3 className="font-semibold">Create New Program</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X size={20} />
-          </button>
-        </div>
-        
-        <div className="p-4">
-          <label className="block text-sm text-gray-500 mb-1">Program Name</label>
-          <div className="flex items-center">
-            <input
-              type="text"
-              value={programName}
-              onChange={(e) => setProgramName(e.target.value)}
-              className="flex-1 border rounded-l p-2"
-              placeholder="Enter program name"
-              autoFocus
-            />
-            <span className="bg-gray-100 text-gray-500 px-2 py-2 border-y border-r rounded-r">
-              .star
-            </span>
-          </div>
-        </div>
-        
-        <div className="p-4 border-t flex justify-end gap-2">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <h3 className="text-lg font-semibold mb-4">Delete Program</h3>
+        <p className="mb-6">Are you sure you want to delete "{program?.name}"? This cannot be undone.</p>
+        <div className="flex justify-end gap-2">
           <button 
             onClick={onClose}
             className="px-4 py-2 border rounded hover:bg-gray-50"
@@ -169,53 +136,57 @@ const CreateProgramModal = ({ isOpen, onClose, onCreate }) => {
             Cancel
           </button>
           <button 
-            onClick={handleCreate}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            disabled={!programName.trim()}
+            onClick={() => {
+              onConfirm(program);
+              onClose();
+            }}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
           >
-            Create
+            Delete
           </button>
         </div>
       </div>
     </div>
   );
 };
+
 const DisplayControl = () => {
   const [programs, setPrograms] = useState([]);
   const [metadata, setMetadata] = useState({});
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [editingProgram, setEditingProgram] = useState(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [configProgram, setConfigProgram] = useState(null);
-  
-  useEffect(() => {
-    const loadPrograms = async () => {
-        try {
-            const loadedPrograms = await listStarPrograms();
-            const loadedMetadata = await loadProgramMetadata();
-            
-            // Clear existing programs first
-            setPrograms([]);
-            
-            const programsWithMetadata = loadedPrograms.map(program => ({
-                ...program,
-                id: program.name, // Use the name as the ID instead of random
-                duration: loadedMetadata[program.name]?.duration || 30,
-                durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
-                enabled: loadedMetadata[program.name]?.enabled ?? true
-            }));
+  const [deleteProgram, setDeleteProgram] = useState(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const hasLoaded = useRef(false);
 
-            console.log('Setting programs:', programsWithMetadata);
-            setPrograms(programsWithMetadata);
-            setMetadata(loadedMetadata);
-        } catch (error) {
-            console.error('Failed to load programs:', error);
-        }
+  useEffect(() => {
+    if (hasLoaded.current) return;
+
+    const loadPrograms = async () => {
+      try {
+        const loadedPrograms = await listStarPrograms();
+        const loadedMetadata = await loadProgramMetadata();
+        
+        const programsWithMetadata = loadedPrograms.map(program => ({
+          ...program,
+          id: program.name,
+          duration: loadedMetadata[program.name]?.duration || 30,
+          durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
+          enabled: loadedMetadata[program.name]?.enabled ?? true
+        }));
+
+        setPrograms([...programsWithMetadata]);
+        setMetadata(loadedMetadata);
+        hasLoaded.current = true;
+      } catch (error) {
+        console.error('Failed to load programs:', error);
+      }
     };
 
     loadPrograms();
-}, []);
+  }, []);
 
   useEffect(() => {
     const saveMetadata = async () => {
@@ -227,17 +198,10 @@ const DisplayControl = () => {
         console.error('Failed to save metadata:', error);
       }
     };
+    
     saveMetadata();
   }, [metadata]);
-  const handleSaveConfig = (programName, config) => {
-    setMetadata(prev => ({
-      ...prev,
-      [programName]: {
-        ...prev[programName],
-        config
-      }
-    }));
-  };
+
   const handleDragStart = (e, position) => {
     setDraggedItem(programs[position]);
     e.dataTransfer.effectAllowed = 'move';
@@ -277,14 +241,13 @@ const DisplayControl = () => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const newProgram = {
-            id: Date.now() + Math.random(),
+            id: file.name,
             name: file.name,
             content: e.target.result,
             duration: 30,
             durationUnit: 'seconds',
             enabled: true
           };
-          console.log('New program being added:', newProgram); // Debug log
           saveStarProgram(file.name, e.target.result);
           setPrograms(prev => [...prev, newProgram]);
           setMetadata(prev => ({
@@ -340,16 +303,100 @@ const DisplayControl = () => {
     }
   };
 
+  const CreateProgramModal = ({ isOpen, onClose, onCreate }) => {
+    const [programName, setProgramName] = useState('');
+    
+    if (!isOpen) return null;
+    
+    const handleCreate = () => {
+      if (programName.trim()) {
+        onCreate(`${programName.trim()}.star`, '// New star program\n');
+        setProgramName('');
+        onClose();
+      }
+    };
+  
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg w-96 flex flex-col">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="font-semibold">Create New Program</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+              <X size={20} />
+            </button>
+          </div>
+          
+          <div className="p-4">
+            <label className="block text-sm text-gray-500 mb-1">Program Name</label>
+            <div className="flex items-center">
+              <input
+                type="text"
+                value={programName}
+                onChange={(e) => setProgramName(e.target.value)}
+                className="flex-1 border rounded-l p-2"
+                placeholder="Enter program name"
+                autoFocus
+              />
+              <span className="bg-gray-100 text-gray-500 px-2 py-2 border-y border-r rounded-r">
+                .star
+              </span>
+            </div>
+          </div>
+          
+          <div className="p-4 border-t flex justify-end gap-2">
+            <button 
+              onClick={onClose}
+              className="px-4 py-2 border rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleCreate}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              disabled={!programName.trim()}
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const handleSaveConfig = (programName, config) => {
+    setMetadata(prev => ({
+      ...prev,
+      [programName]: {
+        ...prev[programName],
+        config
+      }
+    }));
+  };
+
+  const handleDeleteProgram = (program) => {
+    // Remove from UI
+    setPrograms(prev => prev.filter(p => p.id !== program.id));
+    
+    // Remove from metadata
+    setMetadata(prev => {
+      const newMetadata = { ...prev };
+      delete newMetadata[program.name];
+      return newMetadata;
+    });
+
+    // TODO: Add server-side deletion once endpoint is created
+  };
+
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
         <h2 className="text-2xl font-bold">Display Programs</h2>
         <button 
-  onClick={() => setIsCreateModalOpen(true)}
-  className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-600"
->
-  <Plus size={20} /> Add Program
-</button>
+          onClick={() => setIsCreateModalOpen(true)}
+         className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-600"
+        >
+          <Plus size={20} /> Add Program
+        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow">
@@ -379,34 +426,26 @@ const DisplayControl = () => {
                   <FileText size={16} className="text-gray-500" />
                   <span className="font-medium">{program.name}</span>
                   <button 
-                    onClick={() => {
-                      console.log('Setting editing program:', program); // Debug log
-                      setEditingProgram(program);
-                    }}
+                    onClick={() => setEditingProgram(program)}
                     className="p-1 hover:bg-gray-100 rounded"
+                    title="Edit Program"
                   >
                     <Edit2 size={16} className="text-gray-500" />
                   </button>
-              
-              <div className="flex items-center gap-2">
-                <FileText size={16} className="text-gray-500" />
-                  <span className="font-medium">{program.name}</span>
-                    <button 
-                      onClick={() => {
-                        console.log('Setting editing program:', program);
-                        setEditingProgram(program);
-                      }}
-                      className="p-1 hover:bg-gray-100 rounded"
-                    >
-                      <Edit2 size={16} className="text-gray-500" />
-                    </button>
-                <button 
-                  onClick={() => setConfigProgram(program)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  <span className="text-xs bg-gray-100 px-2 py-1 rounded">Config</span>
-                </button>
-              </div>
+                  <button 
+                    onClick={() => setConfigProgram(program)}
+                    className="p-1 hover:bg-gray-100 rounded"
+                    title="Configure Program"
+                  >
+                    <Settings size={16} className="text-gray-500" />
+                  </button>
+                  <button 
+                    onClick={() => setDeleteProgram(program)}
+                    className="p-1 hover:bg-gray-100 rounded"
+                    title="Delete Program"
+                  >
+                    <Trash2 size={16} className="text-red-500" />
+                  </button>
                 </div>
               </div>
               
@@ -445,7 +484,7 @@ const DisplayControl = () => {
                         }
                       }));
                       setPrograms(programs.map(p => 
-                        p.name === program.name 
+                            p.name === program.name 
                           ? { ...p, enabled: e.target.checked }
                           : p
                       ));
@@ -487,39 +526,48 @@ const DisplayControl = () => {
         program={editingProgram || {}}
         onSave={handleSaveContent}
       />
+
       <ConfigEditor 
         isOpen={configProgram !== null}
         onClose={() => setConfigProgram(null)}
         program={configProgram}
         metadata={metadata}
         onSave={handleSaveConfig}
-      />  
-    <CreateProgramModal 
-  isOpen={isCreateModalOpen}
-  onClose={() => setIsCreateModalOpen(false)}
-  onCreate={(name, initialContent) => {
-    const newProgram = {
-      id: Date.now() + Math.random(),
-      name,
-      content: initialContent,
-      duration: 30,
-      durationUnit: 'seconds',
-      enabled: true
-    };
-    saveStarProgram(name, initialContent);
-    setPrograms(prev => [...prev, newProgram]);
-    setMetadata(prev => ({
-      ...prev,
-      [name]: {
-        duration: 30,
-        durationUnit: 'seconds',
-        enabled: true
-      }
-    }));
-    setEditingProgram(newProgram);
-  }}
-/>
-    </div>  
+      />
+
+      <DeleteConfirmation
+        isOpen={deleteProgram !== null}
+        onClose={() => setDeleteProgram(null)}
+        program={deleteProgram}
+        onConfirm={handleDeleteProgram}
+      />
+
+        <CreateProgramModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreate={(name, initialContent) => {
+          const newProgram = {
+            id: name,
+            name,
+            content: initialContent,
+            duration: 30,
+            durationUnit: 'seconds',
+            enabled: true
+          };
+          saveStarProgram(name, initialContent);
+          setPrograms(prev => [...prev, newProgram]);
+          setMetadata(prev => ({
+            ...prev,
+            [name]: {
+              duration: 30,
+              durationUnit: 'seconds',
+              enabled: true
+            }
+          }));
+          setEditingProgram(newProgram);
+        }}
+      />
+    </div>
   );
 };
 
