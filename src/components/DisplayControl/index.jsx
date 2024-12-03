@@ -58,6 +58,69 @@ const StarEditor = ({ isOpen, onClose, program, onSave }) => {
     </div>
   );
 };
+
+const ConfigEditor = ({ isOpen, onClose, program, metadata, onSave }) => {
+  const [configText, setConfigText] = useState('');
+
+  useEffect(() => {
+    if (program && metadata[program.name]?.config) {
+      setConfigText(JSON.stringify(metadata[program.name].config, null, 2));
+    } else {
+      setConfigText('{\n  \n}');
+    }
+  }, [program, metadata]);
+
+  const handleSave = () => {
+    try {
+      const configObj = JSON.parse(configText);
+      onSave(program.name, configObj);
+      onClose();
+    } catch (error) {
+      alert('Invalid JSON format');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+      <div className="bg-white rounded-lg w-2/3 max-w-2xl h-2/3 flex flex-col">
+        <div className="p-4 border-b flex justify-between items-center">
+          <h3 className="font-semibold">Configure {program?.name}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="flex-1 p-4">
+          <textarea
+            value={configText}
+            onChange={(e) => setConfigText(e.target.value)}
+            className="w-full h-full font-mono text-sm border rounded p-2"
+            spellCheck="false"
+            placeholder="Enter JSON configuration"
+          />
+        </div>
+        
+        <div className="p-4 border-t flex justify-end gap-2">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 border rounded hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={handleSave}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Save Config
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CreateProgramModal = ({ isOpen, onClose, onCreate }) => {
   const [programName, setProgramName] = useState('');
   
@@ -124,7 +187,7 @@ const DisplayControl = () => {
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [editingProgram, setEditingProgram] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
+  const [configProgram, setConfigProgram] = useState(null);
   useEffect(() => {
     const loadPrograms = async () => {
       try {
@@ -163,7 +226,15 @@ const DisplayControl = () => {
     };
     saveMetadata();
   }, [metadata]);
-
+  const handleSaveConfig = (programName, config) => {
+    setMetadata(prev => ({
+      ...prev,
+      [programName]: {
+        ...prev[programName],
+        config
+      }
+    }));
+  };
   const handleDragStart = (e, position) => {
     setDraggedItem(programs[position]);
     e.dataTransfer.effectAllowed = 'move';
@@ -313,6 +384,26 @@ const DisplayControl = () => {
                   >
                     <Edit2 size={16} className="text-gray-500" />
                   </button>
+              
+              <div className="flex items-center gap-2">
+                <FileText size={16} className="text-gray-500" />
+                  <span className="font-medium">{program.name}</span>
+                    <button 
+                      onClick={() => {
+                        console.log('Setting editing program:', program);
+                        setEditingProgram(program);
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded"
+                    >
+                      <Edit2 size={16} className="text-gray-500" />
+                    </button>
+                <button 
+                  onClick={() => setConfigProgram(program)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <span className="text-xs bg-gray-100 px-2 py-1 rounded">Config</span>
+                </button>
+              </div>
                 </div>
               </div>
               
@@ -393,6 +484,13 @@ const DisplayControl = () => {
         program={editingProgram || {}}
         onSave={handleSaveContent}
       />
+      <ConfigEditor 
+        isOpen={configProgram !== null}
+        onClose={() => setConfigProgram(null)}
+        program={configProgram}
+        metadata={metadata}
+        onSave={handleSaveConfig}
+      />  
     <CreateProgramModal 
   isOpen={isCreateModalOpen}
   onClose={() => setIsCreateModalOpen(false)}
