@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = 3001;  // Different from your React app port
+const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -21,7 +21,7 @@ if (!fs.existsSync(STAR_PROGRAMS_DIR)) {
     fs.mkdirSync(STAR_PROGRAMS_DIR, { recursive: true });
 }
 
-// List all programs
+// List all programs - single route handler
 app.get('/api/programs', (req, res) => {
     try {
         const files = fs.readdirSync(STAR_PROGRAMS_DIR);
