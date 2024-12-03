@@ -188,31 +188,34 @@ const DisplayControl = () => {
   const [editingProgram, setEditingProgram] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [configProgram, setConfigProgram] = useState(null);
+  
   useEffect(() => {
     const loadPrograms = async () => {
-      try {
-        const loadedPrograms = await listStarPrograms();
-        console.log('Loaded programs:', loadedPrograms); // Debug log
-        const loadedMetadata = await loadProgramMetadata();
-        
-        const programsWithMetadata = loadedPrograms.map(program => ({
-          ...program,
-          id: Date.now() + Math.random(),
-          duration: loadedMetadata[program.name]?.duration || 30,
-          durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
-          enabled: loadedMetadata[program.name]?.enabled ?? true
-        }));
+        try {
+            const loadedPrograms = await listStarPrograms();
+            const loadedMetadata = await loadProgramMetadata();
+            
+            // Clear existing programs first
+            setPrograms([]);
+            
+            const programsWithMetadata = loadedPrograms.map(program => ({
+                ...program,
+                id: program.name, // Use the name as the ID instead of random
+                duration: loadedMetadata[program.name]?.duration || 30,
+                durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
+                enabled: loadedMetadata[program.name]?.enabled ?? true
+            }));
 
-        console.log('Programs with metadata:', programsWithMetadata); // Debug log
-        setPrograms(programsWithMetadata);
-        setMetadata(loadedMetadata);
-      } catch (error) {
-        console.error('Failed to load programs:', error);
-      }
+            console.log('Setting programs:', programsWithMetadata);
+            setPrograms(programsWithMetadata);
+            setMetadata(loadedMetadata);
+        } catch (error) {
+            console.error('Failed to load programs:', error);
+        }
     };
 
     loadPrograms();
-  }, []);
+}, []);
 
   useEffect(() => {
     const saveMetadata = async () => {
