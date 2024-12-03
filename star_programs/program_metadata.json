@@ -1,0 +1,17 @@
+{
+  "whosthatpokemon.star": {
+    "duration": 30,
+    "durationUnit": "seconds",
+    "enabled": true
+  },
+  "colorful_clock.star": {
+    "duration": 30,
+    "durationUnit": "seconds",
+    "enabled": true
+  },
+  "dvdlogo.star": {
+    "duration": 30,
+    "durationUnit": "loops",
+    "enabled": true
+  }
+}
