@@ -61,24 +61,18 @@ const StarEditor = ({ isOpen, onClose, program, onSave }) => {
 
 const ConfigEditor = ({ isOpen, onClose, program, metadata, onSave }) => {
   const [configText, setConfigText] = useState('');
+  const [refreshRate, setRefreshRate] = useState(60);
 
   useEffect(() => {
-    if (program && metadata[program.name]?.config) {
-      setConfigText(JSON.stringify(metadata[program.name].config, null, 2));
+    if (program && metadata[program.name]) {
+      const { config = {}, refresh_rate = 60 } = metadata[program.name];
+      setConfigText(JSON.stringify(config, null, 2));
+      setRefreshRate(refresh_rate);
     } else {
       setConfigText('{\n  \n}');
+      setRefreshRate(60);
     }
   }, [program, metadata]);
-
-  const handleSave = () => {
-    try {
-      const configObj = JSON.parse(configText);
-      onSave(program.name, configObj);
-      onClose();
-    } catch (error) {
-      alert('Invalid JSON format');
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -86,7 +80,19 @@ const ConfigEditor = ({ isOpen, onClose, program, metadata, onSave }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white rounded-lg w-2/3 max-w-2xl h-2/3 flex flex-col">
         <div className="p-4 border-b flex justify-between items-center">
-          <h3 className="font-semibold">Configure {program?.name}</h3>
+          <div>
+            <h3 className="font-semibold">Configure {program?.name}</h3>
+            <div className="mt-2 flex items-center gap-2">
+              <label className="text-sm text-gray-500">Refresh Rate (seconds):</label>
+              <input
+                type="number"
+                value={refreshRate}
+                onChange={(e) => setRefreshRate(parseInt(e.target.value))}
+                className="w-20 border rounded p-1"
+                min="1"
+              />
+            </div>
+          </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X size={20} />
           </button>
@@ -110,7 +116,15 @@ const ConfigEditor = ({ isOpen, onClose, program, metadata, onSave }) => {
             Cancel
           </button>
           <button 
-            onClick={handleSave}
+            onClick={() => {
+              try {
+                const configObj = JSON.parse(configText);
+                onSave(program.name, configObj, refreshRate);
+                onClose();
+              } catch (error) {
+                alert('Invalid JSON format');
+              }
+            }}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
             Save Config
@@ -166,28 +180,28 @@ const DisplayControl = () => {
     if (hasLoaded.current) return;
 
     const loadPrograms = async () => {
-      try {
-          const loadedPrograms = await listStarPrograms();
-          const loadedMetadata = await loadProgramMetadata();
-          
-          const programsWithMetadata = loadedPrograms
-              .map(program => ({
-                  ...program,
-                  id: program.name,
-                  duration: loadedMetadata[program.name]?.duration || 30,
-                  durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
-                  enabled: loadedMetadata[program.name]?.enabled ?? true,
-                  order: loadedMetadata[program.name]?.order ?? 999
-              }))
-              .sort((a, b) => a.order - b.order);
-  
-          setPrograms([...programsWithMetadata]);
-          setMetadata(loadedMetadata);
-          hasLoaded.current = true;
-      } catch (error) {
-          console.error('Failed to load programs:', error);
-      }
-  };
+    try {
+        const loadedPrograms = await listStarPrograms();
+        const loadedMetadata = await loadProgramMetadata();
+        
+        const programsWithMetadata = loadedPrograms
+            .map(program => ({
+                ...program,
+                id: program.name,
+                duration: loadedMetadata[program.name]?.duration || 30,
+                durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
+                enabled: loadedMetadata[program.name]?.enabled ?? true,
+                order: loadedMetadata[program.name]?.order ?? 999
+            }))
+            .sort((a, b) => a.order - b.order);
+
+        setPrograms([...programsWithMetadata]);
+        setMetadata(loadedMetadata);
+        hasLoaded.current = true;
+    } catch (error) {
+        console.error('Failed to load programs:', error);
+    }
+};
 
     loadPrograms();
   }, []);
@@ -384,12 +398,13 @@ const DisplayControl = () => {
     );
   };
 
-  const handleSaveConfig = (programName, config) => {
+  const handleSaveConfig = (programName, config, refreshRate) => {
     setMetadata(prev => ({
       ...prev,
       [programName]: {
         ...prev[programName],
-        config
+        config,
+        refresh_rate: refreshRate
       }
     }));
   };
