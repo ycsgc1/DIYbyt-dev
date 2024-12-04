@@ -4,7 +4,8 @@ import {
   listStarPrograms,
   saveStarProgram,
   saveProgramMetadata,
-  loadProgramMetadata
+  loadProgramMetadata,
+  deleteStarProgram,
 } from '../../api';
 import './styles.css';
 
@@ -166,24 +167,27 @@ const DisplayControl = () => {
 
     const loadPrograms = async () => {
       try {
-        const loadedPrograms = await listStarPrograms();
-        const loadedMetadata = await loadProgramMetadata();
-        
-        const programsWithMetadata = loadedPrograms.map(program => ({
-          ...program,
-          id: program.name,
-          duration: loadedMetadata[program.name]?.duration || 30,
-          durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
-          enabled: loadedMetadata[program.name]?.enabled ?? true
-        }));
-
-        setPrograms([...programsWithMetadata]);
-        setMetadata(loadedMetadata);
-        hasLoaded.current = true;
+          const loadedPrograms = await listStarPrograms();
+          const loadedMetadata = await loadProgramMetadata();
+          
+          const programsWithMetadata = loadedPrograms
+              .map(program => ({
+                  ...program,
+                  id: program.name,
+                  duration: loadedMetadata[program.name]?.duration || 30,
+                  durationUnit: loadedMetadata[program.name]?.durationUnit || 'seconds',
+                  enabled: loadedMetadata[program.name]?.enabled ?? true,
+                  order: loadedMetadata[program.name]?.order ?? 999
+              }))
+              .sort((a, b) => a.order - b.order);
+  
+          setPrograms([...programsWithMetadata]);
+          setMetadata(loadedMetadata);
+          hasLoaded.current = true;
       } catch (error) {
-        console.error('Failed to load programs:', error);
+          console.error('Failed to load programs:', error);
       }
-    };
+  };
 
     loadPrograms();
   }, []);
@@ -229,11 +233,28 @@ const DisplayControl = () => {
   };
 
   const handleDragEnd = () => {
+    if (draggedItem) {
+        // Update metadata with new order
+        const newMetadata = { ...metadata };
+        programs.forEach((program, index) => {
+            if (newMetadata[program.name]) {
+                newMetadata[program.name].order = index;
+            } else {
+                newMetadata[program.name] = {
+                    duration: 30,
+                    durationUnit: 'seconds',
+                    enabled: true,
+                    order: index
+                };
+            }
+        });
+        setMetadata(newMetadata);
+    }
     setDraggedItem(null);
     setDragOverIndex(null);
     const ghostElements = document.querySelectorAll('div[style="display: none;"]');
     ghostElements.forEach(element => element.remove());
-  };
+};
 
   const handleFileUpload = useCallback((files) => {
     Array.from(files).forEach(file => {

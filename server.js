@@ -85,9 +85,21 @@ app.delete('/api/programs/:name', (req, res) => {
     try {
         const fileName = req.params.name;
         const filePath = path.join(STAR_PROGRAMS_DIR, fileName);
+        console.log('Attempting to delete:', filePath);
         fs.unlinkSync(filePath);
+        
+        // Also delete from metadata
+        const metadataPath = path.join(STAR_PROGRAMS_DIR, 'program_metadata.json');
+        if (fs.existsSync(metadataPath)) {
+            const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+            delete metadata[fileName];
+            fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+        }
+        
+        console.log('Successfully deleted file and metadata');
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete program' });
+        console.error('Delete error:', error);
+        res.status(500).json({ error: `Failed to delete program: ${error.message}` });
     }
 });
