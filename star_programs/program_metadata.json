@@ -9,19 +9,19 @@
     "duration": 30,
     "durationUnit": "seconds",
     "enabled": true,
-    "order": 1
+    "order": 0
   },
   "dvdlogo.star": {
     "duration": 30,
     "durationUnit": "loops",
     "enabled": true,
-    "order": 2
+    "order": 1
   },
   "clock.star": {
     "duration": 30,
     "durationUnit": "seconds",
     "enabled": true,
-    "order": 0,
+    "order": 2,
     "config": {},
     "refresh_rate": 5
   }
