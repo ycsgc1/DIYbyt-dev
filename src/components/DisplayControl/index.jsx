@@ -373,19 +373,20 @@ const DisplayControl = () => {
     }));
   };
 
-  const handleDeleteProgram = (program) => {
-    // Remove from UI
-    setPrograms(prev => prev.filter(p => p.id !== program.id));
-    
-    // Remove from metadata
-    setMetadata(prev => {
-      const newMetadata = { ...prev };
-      delete newMetadata[program.name];
-      return newMetadata;
-    });
-
-    // TODO: Add server-side deletion once endpoint is created
-  };
+  const handleDeleteProgram = async (program) => {
+    try {
+        await deleteStarProgram(program.name);
+        setPrograms(prev => prev.filter(p => p.id !== program.id));
+        setMetadata(prev => {
+            const newMetadata = { ...prev };
+            delete newMetadata[program.name];
+            return newMetadata;
+        });
+    } catch (error) {
+        console.error('Failed to delete program:', error);
+        alert('Failed to delete program');
+    }
+};
 
   return (
     <div className="p-4 max-w-4xl mx-auto">

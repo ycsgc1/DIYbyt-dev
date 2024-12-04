@@ -80,3 +80,14 @@ app.post('/api/metadata', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+app.delete('/api/programs/:name', (req, res) => {
+    try {
+        const fileName = req.params.name;
+        const filePath = path.join(STAR_PROGRAMS_DIR, fileName);
+        fs.unlinkSync(filePath);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete program' });
+    }
+});

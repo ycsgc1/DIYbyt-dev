@@ -31,3 +31,10 @@ export const saveProgramMetadata = async (metadata) => {
     });
     return response.json();
 };
+
+export const deleteStarProgram = async (name) => {
+    const response = await fetch(`${API_URL}/programs/${name}`, {
+        method: 'DELETE'
+    });
+    return response.json();
+};
